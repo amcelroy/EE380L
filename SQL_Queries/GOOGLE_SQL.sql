@@ -1,42 +1,36 @@
-# age, expire flag
-Patient_pysql = """
 SELECT c.subject_id,
        c.hadm_id,
        c.hospital_expire_flag,
-       strftime('%Y', c.admittime) - strftime('%Y', c.dob) AS age
+       Date_diff(Date(c.admittime), DATE(c.dob), YEAR) AS age
 FROM
   (SELECT a.subject_id,
           a.hadm_id,
           a.hospital_expire_flag,
           b.dob,
           a.admittime
-   FROM ADMISSIONS a
-   LEFT JOIN PATIENTS b ON a.subject_id = b.subject_id) c
-"""
+   FROM `physionet-data.mimiciii_clinical.admissions` AS a
+   LEFT JOIN `physionet-data.mimiciii_clinical.patients` AS b ON a.subject_id = b.subject_id) AS c-- possibly use icustay instread of hadm
+-- get total count of drug types and average length on each drug
 
-# total number of drugs
-prescription_pysql = """
 SELECT a.subject_id,
        a.hadm_id,
-       count(a.drug) NumDrugs
+       count(a.drug) AS NumDrugs
 FROM
   (SELECT subject_id,
           hadm_id,
           drug
-   FROM PRESCRIPTIONS) a
-GROUP BY 2 -- number of procedures
-"""
+   FROM `physionet-data.mimiciii_clinical.prescriptions`) AS a
+GROUP BY 2,
+         1 -- number of procedures
 
-# number of procedures
-procedures_sql = """
 SELECT subject_id,
        hadm_id,
        count(icd9_code) AS num_procedures
-FROM PROCEDURES_ICD
-GROUP BY 2
-"""
+FROM `physionet-data.mimiciii_clinical.procedures_icd`
+GROUP BY 2,
+         1 -- number of services
+ -- current service
 
-services_sql = """
 SELECT a.subject_id,
        a.hadm_id,
        a.curr_service,
@@ -48,11 +42,9 @@ FROM
           ROW_NUMBER() OVER (PARTITION BY hadm_id
                              ORDER BY transfertime DESC) AS serve_order,
                             count(curr_service) OVER (PARTITION BY hadm_id) num_serv
-   FROM SERVICES) a
-WHERE a.serve_order = 1
-"""
+   FROM `physionet-data.mimiciii_clinical.services`) AS a
+WHERE a.serve_order = 1 -- num transfers, curr care unit
 
-transfers1_sql = """
   SELECT d.subject_id,
          d.hadm_id,
          d.num_transfers,
@@ -80,38 +72,35 @@ transfers1_sql = """
                      curr_careunit,
                      los,
                      outtime
-              FROM TRANSFERS) a) b
-        WHERE b.curr_careunit IS NOT NULL) c) d WHERE d.rownum = 1
-"""
+              FROM `physionet-data.mimiciii_clinical.transfers`) a) b
+        WHERE b.curr_careunit IS NOT NULL) c) d WHERE d.rownum = 1 -- average length of stay, current length of stay
 
-transfers2_sql = """
   SELECT a.subject_id,
          a.hadm_id,
          avg(los) AS avg_los,
          sum(los) AS tot_los
-  FROM TRANSFERS a WHERE a.los IS NOT NULL
-GROUP BY a.hadm_id
-"""
+  FROM `physionet-data.mimiciii_clinical.transfers` a WHERE a.los IS NOT NULL
+GROUP BY 2,
+         1 -- type of caregiver
+ -- next add chart events
 
-chartevents_sql = """
 SELECT subject_id,
        hadm_id,
        count(DISTINCT itemid) AS num_unique_reads,
        count(itemid) AS total_reads,
-       count(DISTINCT cgid) as uinique_caregivers
-FROM CHARTEVENTS
-GROUP BY 2
-"""
+       count(DISTINCT cgid) AS uinique_caregivers
+FROM `physionet-data.mimiciii_clinical.chartevents`
+GROUP BY 2,
+         1 -- tot num procedures
 
-icd9_sql = """
 SELECT subject_id,
        hadm_id,
        max(seq_num) AS total_icd9
-FROM DIAGNOSES_ICD
-GROUP BY 2
-"""
+FROM `physionet-data.mimiciii_clinical.diagnoses_icd`
+GROUP BY 2,
+         1 -- average time in ICU (hours)
+ -- total time in ICU (hours)
 
-icu_time_sql = """
 SELECT a.subject_id,
        a.hadm_id,
        sum(icutime) AS total_icu_hours,
@@ -120,12 +109,12 @@ SELECT a.subject_id,
 FROM
   (SELECT subject_id,
           hadm_id,
-          strftime('%d', outtime) - strftime('%d', intime) AS icutime,
+          date_diff(date(outtime), date(intime), DAY) AS icutime,
           icustay_id
-   FROM ICUSTAYS) a
-GROUP BY 2
-"""
-inputevents_cv_sql = """
+   FROM `physionet-data.mimiciii_clinical.icustays`) a
+GROUP BY 2,
+         1 -- total drugs admninisteres, avg num, total routes administetred, max administered at once
+
 SELECT c.*,
        b.total_input_drugs,
        b.tot_routes
@@ -138,72 +127,41 @@ FROM
      (SELECT subject_id,
              hadm_id,
              count(linkorderid) AS total_together
-      FROM INPUTEVENTS_CV
-      GROUP BY linkorderid) a
-   GROUP BY 2) c
-CROSS JOIN
+      FROM `physionet-data.mimiciii_clinical.inputevents_cv`
+      GROUP BY linkorderid,
+               2,
+               1) a
+   GROUP BY 2,
+            1) c
+RIGHT JOIN
   (SELECT subject_id,
           hadm_id,
           count(orderid) AS total_input_drugs,
           count(DISTINCT originalroute) AS tot_routes
-   FROM INPUTEVENTS_CV
-   GROUP BY 2) b ON c.hadm_id == b.hadm_id
-"""
-inputevents_mv_sql = """
+   FROM `physionet-data.mimiciii_clinical.inputevents_cv`
+   GROUP BY 2,
+            1) b ON C.hadm_id = b.hadm_id
 SELECT subject_id,
        hadm_id,
        patientweight
-FROM INPUTEVENTS_MV
-GROUP BY 2
-"""
-microbiology_sql = """
-SELECT subject_id,
-       hadm_id,
-       org_itemid,
-       org_name,
-       count(DISTINCT org_itemid) as tot_org
-FROM MICROBIOLOGYEVENTS
-GROUP BY 2
-"""
-all_sql = """
-SELECT a.subject_id,
-       a.hadm_id,
-       a.hospital_expire_flag,
-       a.age,
-       b.NumDrugs,
-       c.num_procedures,
-       d.curr_service,
-       d.num_serv,
-       e.num_transfers,
-       e.curr_careunit,
-       f.avg_los,
-       f.tot_los,
-       g.num_unique_reads,
-       g.total_reads,
-       g.uinique_caregivers,
-       h.total_icd9,
-       i.total_icu_hours,
-       i.avg_icu_hours,
-       i.total_icu_stays,
-       j.avg_num_drug_administered,
-       j.max_drug_administered,
-       j.total_input_drugs,
-       j.tot_routes,
-       k.patientweight,
-       l.tot_org,
-       m.org_name,
-       m.org_itemid
-FROM a
-LEFT JOIN b ON a.hadm_id == b.hadm_id
-LEFT JOIN c ON a.hadm_id == c.hadm_id
-LEFT JOIN d ON a.hadm_id == d.hadm_id
-LEFT JOIN e ON a.hadm_id == e.hadm_id
-LEFT JOIN f ON a.hadm_id == f.hadm_id
-LEFT JOIN g ON a.hadm_id == g.hadm_id
-LEFT JOIN h ON a.hadm_id == h.hadm_id
-LEFT JOIN i ON a.hadm_id == i.hadm_id
-LEFT JOIN j ON a.hadm_id == j.hadm_id
-LEFT JOIN k ON a.hadm_id == k.hadm_id
-LEFT JOIN l ON a.hadm_id == l.hadm_id
-LEFT JOIN m on a.hadm_id == m.hadm_id
-"""
+FROM `physionet-data.mimiciii_clinical.inputevents_mv`
+GROUP BY 2,
+         1,
+         3 -- microbiology events, organism type, num orgamisms
+
+SELECT hadm_id,
+       count(DISTINCT org_itemid) AS tot_org
+FROM `physionet-data.mimiciii_clinical.microbiologyevents`
+GROUP BY 1
+SELECT a.*
+FROM
+  (SELECT subject_id,
+          hadm_id,
+          org_itemid,
+          org_name,
+          charttime,
+          row_number() OVER (PARTITION BY hadm_id
+                             ORDER BY charttime DESC) AS rownum
+   FROM `physionet-data.mimiciii_clinical.microbiologyevents`
+   WHERE ORG_ITEMID IS NOT NULL) a
+WHERE a.rownum = 1

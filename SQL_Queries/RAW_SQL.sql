@@ -1,5 +1,6 @@
-# age, expire flag
-Patient_pysql = """
+-- age, expire flag
+-- ADMISSIONS and PATIENTS
+
 SELECT c.subject_id,
        c.hadm_id,
        c.hospital_expire_flag,
@@ -11,11 +12,9 @@ FROM
           b.dob,
           a.admittime
    FROM ADMISSIONS a
-   LEFT JOIN PATIENTS b ON a.subject_id = b.subject_id) c
-"""
+   LEFT JOIN PATIENTS b ON a.subject_id = b.subject_id) c -- possibly use icustay instread of hadm
+-- get total count of drug types and average length on each drug
 
-# total number of drugs
-prescription_pysql = """
 SELECT a.subject_id,
        a.hadm_id,
        count(a.drug) NumDrugs
@@ -25,18 +24,14 @@ FROM
           drug
    FROM PRESCRIPTIONS) a
 GROUP BY 2 -- number of procedures
-"""
 
-# number of procedures
-procedures_sql = """
 SELECT subject_id,
        hadm_id,
        count(icd9_code) AS num_procedures
 FROM PROCEDURES_ICD
-GROUP BY 2
-"""
+GROUP BY 2 -- number of services
+-- current service
 
-services_sql = """
 SELECT a.subject_id,
        a.hadm_id,
        a.curr_service,
@@ -49,10 +44,8 @@ FROM
                              ORDER BY transfertime DESC) AS serve_order,
                             count(curr_service) OVER (PARTITION BY hadm_id) num_serv
    FROM SERVICES) a
-WHERE a.serve_order = 1
-"""
+WHERE a.serve_order = 1 -- num transfers, curr care unit
 
-transfers1_sql = """
   SELECT d.subject_id,
          d.hadm_id,
          d.num_transfers,
@@ -81,37 +74,31 @@ transfers1_sql = """
                      los,
                      outtime
               FROM TRANSFERS) a) b
-        WHERE b.curr_careunit IS NOT NULL) c) d WHERE d.rownum = 1
-"""
+        WHERE b.curr_careunit IS NOT NULL) c) d WHERE d.rownum = 1 -- average length of stay, current length of stay
 
-transfers2_sql = """
   SELECT a.subject_id,
          a.hadm_id,
          avg(los) AS avg_los,
          sum(los) AS tot_los
   FROM TRANSFERS a WHERE a.los IS NOT NULL
-GROUP BY a.hadm_id
-"""
+GROUP BY a.hadm_id -- type of caregiver
+ -- next add chart events
 
-chartevents_sql = """
 SELECT subject_id,
        hadm_id,
        count(DISTINCT itemid) AS num_unique_reads,
        count(itemid) AS total_reads,
-       count(DISTINCT cgid) as uinique_caregivers
+       count(DISTINCT cgid) AS uinique_caregivers
 FROM CHARTEVENTS
-GROUP BY 2
-"""
+GROUP BY 2 -- tot num procedures
 
-icd9_sql = """
 SELECT subject_id,
        hadm_id,
        max(seq_num) AS total_icd9
 FROM DIAGNOSES_ICD
-GROUP BY 2
-"""
+GROUP BY 2 -- average time in ICU (hours)
+-- total time in ICU (hours)
 
-icu_time_sql = """
 SELECT a.subject_id,
        a.hadm_id,
        sum(icutime) AS total_icu_hours,
@@ -123,9 +110,8 @@ FROM
           strftime('%d', outtime) - strftime('%d', intime) AS icutime,
           icustay_id
    FROM ICUSTAYS) a
-GROUP BY 2
-"""
-inputevents_cv_sql = """
+GROUP BY 2 -- total drugs admninisteres, avg num, total routes administetred, max administered at once
+
 SELECT c.*,
        b.total_input_drugs,
        b.tot_routes
@@ -147,25 +133,22 @@ CROSS JOIN
           count(orderid) AS total_input_drugs,
           count(DISTINCT originalroute) AS tot_routes
    FROM INPUTEVENTS_CV
-   GROUP BY 2) b ON c.hadm_id == b.hadm_id
-"""
-inputevents_mv_sql = """
+   GROUP BY 2) b ON c.hadm_id == b.hadm_id -- patient weight
+
 SELECT subject_id,
        hadm_id,
        patientweight
 FROM INPUTEVENTS_MV
-GROUP BY 2
-"""
-microbiology_sql = """
+GROUP BY 2 -- microbiology events, organism type, num orgamisms
+
 SELECT subject_id,
        hadm_id,
        org_itemid,
        org_name,
-       count(DISTINCT org_itemid) as tot_org
+       count(DISTINCT org_itemid) AS tot_org
 FROM MICROBIOLOGYEVENTS
-GROUP BY 2
-"""
-all_sql = """
+GROUP BY 2 --- ALL TABLES
+
 SELECT a.subject_id,
        a.hadm_id,
        a.hospital_expire_flag,
@@ -190,9 +173,9 @@ SELECT a.subject_id,
        j.total_input_drugs,
        j.tot_routes,
        k.patientweight,
-       l.tot_org,
-       m.org_name,
-       m.org_itemid
+       l.org_itemid,
+       l.org_name,
+       l.tot_org
 FROM a
 LEFT JOIN b ON a.hadm_id == b.hadm_id
 LEFT JOIN c ON a.hadm_id == c.hadm_id
@@ -205,5 +188,3 @@ LEFT JOIN i ON a.hadm_id == i.hadm_id
 LEFT JOIN j ON a.hadm_id == j.hadm_id
 LEFT JOIN k ON a.hadm_id == k.hadm_id
 LEFT JOIN l ON a.hadm_id == l.hadm_id
-LEFT JOIN m on a.hadm_id == m.hadm_id
-"""
