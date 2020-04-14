@@ -8,6 +8,7 @@ class MIMICLoader:
     def load(self, path=''):
         df = pd.read_csv(path)
         df = df[df['patientweight'].notna()]
+        df = df.drop(columns='Unnamed: 0')
         fillcols = {'hospital_expire_flag': 0, 'age': df.age.mean(), 'NumDrugs': 0, 'num_procedures': 0,
                     'curr_service': 0, 'num_serv': 0, 'num_transfers': 0, 'curr_careunit': 0, \
                     'avg_los': df.avg_los.mean(), 'tot_los': df.tot_los.mean(),

@@ -10,5 +10,7 @@ dead = ml.getDeceased(data, number=60)
 
 train, test, val = ml.train_test_split(living)
 
+
+
 x = 0
 
