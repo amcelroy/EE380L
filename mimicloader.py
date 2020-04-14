@@ -5,11 +5,10 @@ import numpy as np
 
 
 class MIMICLoader:
-
     def load(self, path=''):
         data = pd.read_csv(path)
         data = data.drop(columns=['age', 'patientweight', 'org_itemid', 'org_name', 'avg_num_drug_administered' \
-                'max_drug_administered', 'total_input_drugs', 'tot_routes'])
+                'max_drug_administered', 'total_input_drugs', 'tot_routes', 'tot_org'])
         return data
 
     def getDeceased(self, data=pd.DataFrame):
