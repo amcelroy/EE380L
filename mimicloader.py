@@ -5,10 +5,24 @@ import numpy as np
 
 
 class MIMICLoader:
-    def load(self, path='', train_size=.8, kfolds=5, rand_seed=42, reduced=False):
+
+    def load(self, path=''):
+        data = pd.read_csv(path)
+        data = data.drop(columns=['age', 'patientweight', 'org_itemid', 'org_name', 'avg_num_drug_administered' \
+                'max_drug_administered', 'total_input_drugs', 'tot_routes'])
+        return data
+
+    def getDeceased(self, data=pd.DataFrame):
+        dead = data.loc[data['hospital_expire_flag'] == 1]
+        return dead
+
+    def getLiving(self, data=pd.DataFrame):
+        dead = data.loc[data['hospital_expire_flag'] == 0]
+        return dead
+
+    def train_test_split(self, data=pd.DataFrame, train_size=.8, kfolds=5, rand_seed=42, reduced=False):
         '''
         Loads the MIMIC csv at the path. Returns a tuple of:
-            dataframe
             array of indicies for k-fold training data location
             array of indicies for k-fold testing data location
             array of indicies for validation data location
@@ -16,14 +30,13 @@ class MIMICLoader:
         Note, the validation data is indexed BEFORE doing K-Folds, so there is
         no overlap of the validation indexes with k-folds.
 
-        :param path: Path to mimic csv
+        :param data: Pandas dataframe of the MIMIC data
         :param train_size: percent of data to put in the training / validation
         :param kfolds: Number of folds
         :param rand_seed: Shuffle seed
         :param reduced: If true, uses only 10% of the data, useful for testing
         :return:
         '''
-        data = pd.read_csv(path)
         rows = len(data.index)
 
         if (reduced):
@@ -51,4 +64,4 @@ class MIMICLoader:
             train_set.append(train)
             test_set.append(test)
 
-        return data, train_set, test_set, validation_set
+        return train_set, test_set, validation_set
