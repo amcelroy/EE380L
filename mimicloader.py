@@ -6,18 +6,41 @@ import numpy as np
 
 class MIMICLoader:
     def load(self, path=''):
-        data = pd.read_csv(path)
-        data = data.drop(columns=['age', 'patientweight', 'org_itemid', 'org_name', 'avg_num_drug_administered' \
-                'max_drug_administered', 'total_input_drugs', 'tot_routes', 'tot_org'])
-        return data
+        df = pd.read_csv(path)
+        df = df[df['patientweight'].notna()]
+        fillcols = {'hospital_expire_flag': 0, 'age': df.age.mean(), 'NumDrugs': 0, 'num_procedures': 0,
+                    'curr_service': 0, 'num_serv': 0, 'num_transfers': 0, 'curr_careunit': 0, \
+                    'avg_los': df.avg_los.mean(), 'tot_los': df.tot_los.mean(),
+                    'num_unique_reads': df.num_unique_reads.mean(), \
+                    'total_reads': df.total_reads.mean(), 'uinique_caregivers': df.uinique_caregivers.mean(),
+                    'total_icd9': df.total_icd9.mean(), 'total_icu_hours': 0, \
+                    'avg_icu_hours': 0, 'total_icu_stays': 0, 'avg_num_drug_administered': 0,
+                    'max_drug_administered': 0, 'total_input_drugs': 0, 'tot_routes': 0, \
+                    'tot_org': 0, 'org_name': 0, 'org_itemid': 0}
+        df.fillna(value=fillcols,inplace=True)
+        return df
 
-    def getDeceased(self, data=pd.DataFrame):
+    def getDeceased(self, data=pd.DataFrame, number=None):
         dead = data.loc[data['hospital_expire_flag'] == 1]
+        dead = dead.drop(columns='hospital_expire_flag')
+
+        if(number):
+            indicies = np.arange(0, number)
+            random.shuffle(indicies)
+            dead = dead.iloc[indicies]
+
         return dead
 
-    def getLiving(self, data=pd.DataFrame):
-        dead = data.loc[data['hospital_expire_flag'] == 0]
-        return dead
+    def getLiving(self, data=pd.DataFrame, number=None):
+        living = data.loc[data['hospital_expire_flag'] == 0]
+        living = living.drop(columns='hospital_expire_flag')
+
+        if(number):
+            indicies = np.arange(0, number)
+            random.shuffle(indicies)
+            living = living.iloc[indicies]
+
+        return living
 
     def train_test_split(self, data=pd.DataFrame, train_size=.8, kfolds=5, rand_seed=42, reduced=False):
         '''
@@ -48,9 +71,7 @@ class MIMICLoader:
 
         train_length = int(len(indicies) * train_size)
         train_index = indicies[:train_length]
-        test_index = indicies[train_length:]
-
-        validation_set = data.iloc[test_index]
+        val_index = indicies[train_length:]
 
         train_set = []
         test_set = []
@@ -63,4 +84,4 @@ class MIMICLoader:
             train_set.append(train)
             test_set.append(test)
 
-        return train_set, test_set, validation_set
+        return train_set, test_set, val_index
