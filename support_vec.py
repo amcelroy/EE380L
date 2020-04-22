@@ -13,11 +13,13 @@ data, truth = ml.getDataSet(data, one_hot=False)
 
 train, test, val = ml.train_test_split(data=data)
 
+clf = svm.SVC(kernel='sigmoid')
+
 for i in range(len(train)):
     print("Fitting {}:".format(i))
     train_data = data.iloc[train[i]].values
     truth_data = truth[train[i]]
-    clf = svm.SVC(kernel='sigmoid')
+    # clf = svm.SVC(kernel='sigmoid')
     clf.fit(train_data, truth_data)
     predicted = clf.predict(data.iloc[test[i]].values)
     print(confusion_matrix(truth[test[i]], predicted))
