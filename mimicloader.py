@@ -7,21 +7,30 @@ import matplotlib.pyplot as plt
 
 class MIMICLoader:
     def load(self, path=''):
-        df = pd.read_csv(path)
+        df = pd.read_csv('mimic_dataset.csv')
+        df.drop(columns=['Unnamed: 0'],inplace=True)
         df = df[df['patientweight'].notna()]
-        df = df.drop(columns=['Unnamed: 0', 'org_name', 'org_itemid', 'tot_org',
-                              'curr_careunit', 'subject_id', 'hadm_id', 'curr_service', 'age',
-                              'max_drug_administered', 'total_input_drugs', 'total_icu_hours'])
-        fillcols = {'hospital_expire_flag': 0, 'NumDrugs': 0, 'num_procedures': 0,
-                    'curr_service': 0, 'num_serv': 0, 'num_transfers': 0, 'curr_careunit': 0,
-                    'avg_los': df.avg_los.mean(), 'tot_los': df.tot_los.mean(),
-                    'num_unique_reads': df.num_unique_reads.mean(),
-                    'total_reads': df.total_reads.mean(), 'uinique_caregivers': df.uinique_caregivers.mean(),
-                    'total_icd9': df.total_icd9.mean(), 'total_icu_hours': 0,
-                    'avg_icu_hours': 0, 'total_icu_stays': 0, 'avg_num_drug_administered': 0,
-                    'max_drug_administered': 0, 'total_input_drugs': 0, 'tot_routes': 0,
-                    'tot_org': 0, 'org_name': 0, 'org_itemid': 0}
-        df.fillna(value=fillcols, inplace=True)
+        fillcols = {'hospital_expire_flag':0,'age':df.age.mean(),'NumDrugs':0,'num_procedures':0,'curr_service':0,'num_serv':0,'num_transfers':0,'curr_careunit':0,\
+                    'avg_los':df.avg_los.mean(),'tot_los':df.tot_los.mean(),'num_unique_reads':df.num_unique_reads.mean(),\
+                   'total_reads':df.total_reads.mean(),'uinique_caregivers':df.uinique_caregivers.mean(),'total_icd9':df.total_icd9.mean(),'total_icu_hours':0,\
+                   'avg_icu_hours':0,'total_icu_stays':0,'avg_num_drug_administered':0,'max_drug_administered':0,'total_input_drugs':0,'tot_routes':0,\
+                   'tot_org':0,'org_name':0,'org_itemid':0}
+        df.fillna(value=fillcols,inplace=True)
+        serv = df.curr_service.unique()
+        care = df.curr_careunit.unique()
+        org = df.org_name.unique()
+
+        def replace_stuff(s):
+            new_dic = {}
+            i = 1
+            for j in s:
+                if j != 0:
+                    new_dic[j] = i
+                    i +=1
+            return new_dic
+        df.replace({'curr_service':replace_stuff(serv),'curr_careunit':replace_stuff(care),'org_name':replace_stuff(org)},inplace=True)
+        df = df.apply(np.int64)
+        df = df.drop(columns=['subject_id','hadm_id','total_input_drugs','total_icu_hours','max_drug_administered','org_name'])
         return df
 
     def covariance(self, data=pd.DataFrame, plot=False):
@@ -107,10 +116,8 @@ class MIMICLoader:
             array of indicies for k-fold training data location
             array of indicies for k-fold testing data location
             array of indicies for validation data location
-
         Note, the validation data is indexed BEFORE doing K-Folds, so there is
         no overlap of the validation indexes with k-folds.
-
         :param data: Pandas dataframe of the MIMIC data
         :param train_size: percent of data to put in the training / validation
         :param kfolds: Number of folds
