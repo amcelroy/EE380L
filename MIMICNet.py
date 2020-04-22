@@ -1,4 +1,3 @@
-
 import keras
 from keras import regularizers
 from keras.callbacks import Callback
