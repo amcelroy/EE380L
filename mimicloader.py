@@ -69,15 +69,24 @@ class MIMICLoader:
 
         return living
 
-    def getDataSet(self, df=pd.DataFrame, number=None, one_hot=False):
-        if(number):
+    def getDataSet(self, df=pd.DataFrame, number=None, one_hot=False, balance=True):
+        if number:
             living = self.getLiving(df, number=number)
             dead = self.getDeceased(df, number=number)
         else:
             living = self.getLiving(df)
             dead = self.getDeceased(df)
+
+        if balance:
+            min_value = min(dead.shape[0], living.shape[0])
+            random_index = np.arange(min_value)
+            random.shuffle(random_index)
+            dead = dead.iloc[random_index]
+            living = living.iloc[random_index]
+
+
         data = [dead, living]
-        data = pd.concat(data)
+        data = pd.concat(data, ignore_index=True)
 
         living_truth = np.zeros(living.shape[0])
         dead_truth = np.ones(dead.shape[0])
