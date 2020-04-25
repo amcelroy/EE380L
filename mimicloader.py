@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 class MIMICLoader:
     def load(self, path=''):
-        df = pd.read_csv('mimic_dataset.csv')
+        df = pd.read_csv(path+'mimic_dataset.csv')
         df.drop(columns=['Unnamed: 0'],inplace=True)
         df = df[df['patientweight'].notna()]
         fillcols = {'hospital_expire_flag':0,'age':df.age.mean(),'NumDrugs':0,'num_procedures':0,'curr_service':0,'num_serv':0,'num_transfers':0,'curr_careunit':0,\
