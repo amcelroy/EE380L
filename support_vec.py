@@ -10,53 +10,81 @@ import numpy as np
 np.set_printoptions(threshold=sys.maxsize)
 
 ml = MIMICLoader()
-data = ml.load('mimic_dataset.csv')
+data = ml.load("PythonCode/")
 
 data, truth = ml.getDataSet(data, one_hot=False)
 
 train, test, val = ml.train_test_split(data=data)
 
-def array_avg(array):
+def sum(array):
     sum = 0
     for element in array:
         sum += element
     return sum
 
-print(len(data))
-print(len(truth))
+def avg(array):
+    sum = 0
+    for element in array:
+        sum += element
+    return sum/len(array)
 
-predictions = []
+train_accuracies = []
+test_accuracies = []
+
 true_positives = []
 true_negatives = []
 false_positives = []
 false_negatives = []
 
+sigmoid = False
+
 for i in range(len(train)):
     print("Fitting {}:".format(i))
+
     train_data = data.iloc[train[i]].values
     truth_data = truth[train[i]]
-    print(len(train_data))
-    print(len(truth_data))
-    clf = svm.SVC(gamma="auto")
+    if(sigmoid):
+        clf = svm.SVC(kernel="sigmoid")
+    else:
+        clf = svm.SVC(gamma="auto")
     clf.fit(train_data, truth_data)
     train_accuracy = clf.score(train_data, truth_data)
     test_accuracy = clf.score(data.iloc[test[i]].values, truth[test[i]])
     print("Train accuracy = {}".format(train_accuracy))
     print("Test accuracy = {}".format(test_accuracy))
-    predictions.append(clf.predict(data.iloc[test[i]].values))
-    tn, fp, fn, tp = confusion_matrix(truth[test[i]], predictions[i]).ravel()
+    train_accuracies.append(train_accuracy)
+    test_accuracies.append(test_accuracy)
+
+    prediction = clf.predict(data.iloc[test[i]].values)
+    tn, fp, fn, tp = confusion_matrix(truth[test[i]], prediction).ravel()
     true_negatives.append(tn)
     false_positives.append(fp)
     false_negatives.append(fn)
     true_positives.append(tp)
-    print('\n\n\n')
+    print('\n')
 
-tp = int(array_avg(true_positives))
-tn = int(array_avg(true_negatives))
-fp = int(array_avg(false_positives))
-fn = int(array_avg(false_negatives))
+avg_train_accuracy = avg(train_accuracies)
+avg_test_accuracy = avg(test_accuracies)
 
-print("tp = {}".format(tp))
+tp = sum(true_positives)
+tn = sum(true_negatives)
+fp = sum(false_positives)
+fn = sum(false_negatives)
+
+precision = tp / (tp+fp)
+recall = tp / (tp + fn)
+f1 = 2*(precision*recall)/(precision + recall)
+
+print("\n\nOverall results:")
+
+print("\nAverage train accuracy: {}".format(avg_train_accuracy))
+print("Average test accuracy: {}".format(avg_test_accuracy))
+
+print("\ntp = {}".format(tp))
 print("tn = {}".format(tn))
 print("fp = {}".format(fp))
 print("fn = {}".format(fn))
+
+print("\nPrecision (tp/(tp+fp)) = {}".format(precision))
+print("Recall (tp/(tp+fn)) = {}".format(recall))
+print("F1 = {}".format(f1))
